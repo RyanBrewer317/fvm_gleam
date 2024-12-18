@@ -1,3 +1,4 @@
+import gleam/int
 import common.{
   type Expr, type Op, APP, App, CAP, Ident, Int, LAM, LIT, Lam, RET, VAR,
 }
@@ -22,7 +23,7 @@ pub fn lower(expr: Expr, caps: List(Int)) -> List(Op) {
         Ok(idx) -> [VAR(idx + 1)]
       }
     Lam(body) -> {
-      let body_caps = fvs(body, 1) |> set.to_list
+      let body_caps = fvs(body, 1) |> set.to_list |> list.sort(int.compare)
       let body_caps_indices =
         list.map(body_caps, fn(n) { unwrap(index(caps, n - 1), -1) + 1 })
       list.append(list.map(list.reverse(body_caps_indices), CAP), [
