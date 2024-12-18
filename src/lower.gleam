@@ -2,16 +2,34 @@ import common.{
   type Expr, type Op, APP, App, CAP, Ident, Int, LAM, LIT, Lam, RET, VAR,
 }
 import gleam/list
+import gleam/result.{unwrap}
 import gleam/set.{type Set}
 
-pub fn lower(expr: Expr) -> List(Op) {
+fn index(l: List(a), a: a) -> Result(Int, Nil) {
+  case l {
+    [] -> Error(Nil)
+    [x, ..] if x == a -> Ok(0)
+    [_, ..rest] -> result.map(index(rest, a), fn(n) { n + 1 })
+  }
+}
+
+pub fn lower(expr: Expr, caps: List(Int)) -> List(Op) {
   case expr {
     Int(n) -> [LIT(n)]
-    Ident(n) -> [VAR(n)]
-    Lam(body) ->
-      list.map(set.to_list(fvs(body, 1)), fn(n) { CAP(n - 1) })
-      |> list.append([LAM(lower(body) |> list.append([RET]))])
-    App(f, x) -> lower(f) |> list.append(lower(x)) |> list.append([APP])
+    Ident(n) -> 
+      case index(caps, n) {
+        Error(Nil) -> [VAR(0)]
+        Ok(idx) -> [VAR(idx + 1)]
+      }
+    Lam(body) -> {
+      let body_caps = fvs(body, 1) |> set.to_list
+      let body_caps_indices =
+        list.map(body_caps, fn(n) { unwrap(index(caps, n - 1), -1) + 1 })
+      list.append(list.map(list.reverse(body_caps_indices), CAP), [
+        LAM(lower(body, body_caps) |> list.append([RET])),
+      ])
+    }
+    App(f, x) -> lower(f, caps) |> list.append(lower(x, caps)) |> list.append([APP])
   }
 }
 
